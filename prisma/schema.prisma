@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MASTER
+  APPRENTICE
+}
+
+enum TaskType {
+  DAILY
+  ASSESSMENT
+  EXAM
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum MessageRole {
+  CUSTOMER
+  APPRENTICE
+  SYSTEM
+}
+
+enum SessionStatus {
+  RUNNING
+  SUBMITTED
+  REVIEWED
+}
+
+enum OrganizationUnitType {
+  CLASS
+  DEPARTMENT
+}
+
+model User {
+  id               String            @id @default(cuid())
+  username         String            @unique
+  passwordHash     String
+  role             Role              @default(APPRENTICE)
+  className        String?
+  organizationUnitId String?
+  organizationUnit OrganizationUnit? @relation("OrganizationUnitMembers", fields: [organizationUnitId], references: [id], onDelete: SetNull)
+  signatureImagePath String?
+  isActive         Boolean           @default(true)
+  createdTasks     Task[]            @relation("TaskCreator")
+  createdProducts  Product[]         @relation("ProductCreator")
+  uploadedFaqs     FaqDocument[]     @relation("FaqUploader")
+  taskEnrollments  TaskEnrollment[]  @relation("EnrollmentUser")
+  assignedEnrollments TaskEnrollment[] @relation("EnrollmentAssigner")
+  trainingSessions TrainingSession[]
+  reviewedReports  ScoreReport[]     @relation("ReportReviewer")
+  certificates     Certificate[]
+  createdOrganizationUnits OrganizationUnit[] @relation("OrganizationUnitOwner")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model OrganizationUnit {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  type        OrganizationUnitType @default(CLASS)
+  description String               @default("")
+  isActive    Boolean              @default(true)
+  ownerId     String?
+  owner       User?                @relation("OrganizationUnitOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members     User[]               @relation("OrganizationUnitMembers")
+  tasks       Task[]               @relation("TaskOrganizationUnit")
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([ownerId])
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  category    String
+  description String
+  faqText     String       @default("")
+  policyText  String       @default("")
+  createdById String?
+  createdBy   User?        @relation("ProductCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks       Task[]
+  faqDocs     FaqDocument[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([createdById])
+}
+
+model FaqDocument {
+  id           String   @id @default(cuid())
+  title        String
+  sourceType   String   @default("text")
+  content      String
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  uploadedById String?
+  uploadedBy   User?    @relation("FaqUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Task {
+  id                String            @id @default(cuid())
+  title             String
+  type              TaskType          @default(DAILY)
+  productId         String
+  product           Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  scenario          String
+  customerProfile   String            @default("")
+  orderInfoJson     String            @default("{}")
+  difficulty        Difficulty        @default(MEDIUM)
+  objectivesJson    String
+  timeLimit         Int               @default(15)
+  roundLimit        Int               @default(12)
+  allowRetry        Boolean           @default(true)
+  allowMakeupExam   Boolean           @default(true)
+  showHints         Boolean           @default(true)
+  reportVisibleMode String            @default("immediately")
+  isArchived        Boolean           @default(false)
+  archivedAt        DateTime?
+  createdById       String?
+  createdBy         User?             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  organizationUnitId String?
+  organizationUnit   OrganizationUnit? @relation("TaskOrganizationUnit", fields: [organizationUnitId], references: [id], onDelete: SetNull)
+  enrollments       TaskEnrollment[]
+  sessions          TrainingSession[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([organizationUnitId])
+}
+
+model TaskEnrollment {
+  id           String   @id @default(cuid())
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation("EnrollmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedBy   User?    @relation("EnrollmentAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  joinedAt     DateTime @default(now())
+
+  @@unique([taskId, userId])
+}
+
+model TrainingSession {
+  id               String        @id @default(cuid())
+  taskId           String
+  task             Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           SessionStatus @default(RUNNING)
+  currentStateJson String
+  messages         ChatMessage[]
+  report           ScoreReport?
+  startedAt        DateTime      @default(now())
+  endedAt          DateTime?
+  updatedAt        DateTime      @updatedAt
+}
+
+model ChatMessage {
+  id        String          @id @default(cuid())
+  sessionId String
+  session   TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      MessageRole
+  content   String
+  createdAt DateTime        @default(now())
+}
+
+model ScoreReport {
+  id           String          @id @default(cuid())
+  sessionId    String          @unique
+  session      TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  totalScore   Int
+  rawScore     Int
+  level        String
+  passStatus   String
+  summary      String
+  reportJson   String
+  reviewedById String?
+  reviewedBy   User?           @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdAt    DateTime        @default(now())
+}
+
+model Certificate {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certificateNo String @unique
+  title       String
+  level       String
+  finalScore  Int
+  issuedAt    DateTime @default(now())
+}
+
+model AiProvider {
+  id              String   @id @default(cuid())
+  name            String
+  provider        String   @default("deepseek")
+  baseUrl         String
+  model           String
+  apiKeyEncrypted String?
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

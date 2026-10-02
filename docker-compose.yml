@@ -1,0 +1,32 @@
+services:
+  ecommerce-cs-training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-cs-training:latest
+    container_name: ecommerce-cs-training
+    restart: unless-stopped
+    init: true
+    env_file:
+      - docker.env
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
+    volumes:
+      - ./docker-data/prisma:/data/prisma
+      - ./docker-data/signatures:/app/public/images/signatures
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

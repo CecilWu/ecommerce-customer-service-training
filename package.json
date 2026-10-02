@@ -1,0 +1,42 @@
+{
+  "name": "ecommerce-customer-service-training",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "preflight": "node scripts/preflight.mjs",
+    "test:integrity": "node scripts/data-integrity.mjs",
+    "test:quality": "node scripts/quality-regression.mjs",
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "test:release": "npm run preflight && npm run test:integrity && npm run test:quality && npm run check && npm run test:smoke",
+    "secrets:rotate": "node scripts/rotate-secrets.mjs",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:init": "npm run db:generate && npm run db:push && npm run db:seed",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.20",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "prisma": "^6.19.3",
+    "typescript": "^5.9.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  }
+}
